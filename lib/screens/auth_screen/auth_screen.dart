@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_the_movie_db/widgets/buttons/custom_primary_button/custom_primary_button.dart';
 import 'package:flutter_the_movie_db/widgets/custom_app_bar/custom_app_bar.dart';
 import 'package:flutter_the_movie_db/widgets/inputs/auth_input/auth_input.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
+
+  void _handleLoginPressed() {}
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +22,12 @@ class AuthScreen extends StatelessWidget {
           const SizedBox(height: 12),
           AuthInput(
             labelText: 'Password',
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+          ),
+          const SizedBox(height: 12),
+          CustomPrimaryButton(
+            text: 'Login',
+            onPressed: _handleLoginPressed,
             padding: const EdgeInsets.symmetric(horizontal: 13),
           ),
         ],
