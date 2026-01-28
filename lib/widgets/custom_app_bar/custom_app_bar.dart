@@ -15,6 +15,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       backgroundColor: colors['primary'],
+      iconTheme: IconThemeData(color: colors['white']),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         spacing: 8,
