@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_the_movie_db/constants/colors.dart';
 
-class ProfileCard extends StatelessWidget {
+class ProfileCard extends StatefulWidget {
   const ProfileCard({super.key});
 
+  @override
+  State<ProfileCard> createState() => _ProfileCardState();
+}
+
+class _ProfileCardState extends State<ProfileCard> {
   @override
   Widget build(BuildContext context) {
     return Card(
