@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_the_movie_db/API/base_url.dart';
 import 'package:flutter_the_movie_db/constants/colors.dart';
 
 class ProfileCard extends StatefulWidget {
@@ -9,6 +11,10 @@ class ProfileCard extends StatefulWidget {
 }
 
 class _ProfileCardState extends State<ProfileCard> {
+  static const _storage = FlutterSecureStorage();
+
+  Map<String, dynamic>? _profileData;
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -21,15 +27,47 @@ class _ProfileCardState extends State<ProfileCard> {
   }
 
   Widget _buildAvatar() {
-    final imageUrl =
-        'https://hips.hearstapps.com/hmg-prod/images/elon-musk-gettyimages-2147789844-web-675b2c17301ea.jpg?crop=0.6666666666666666xw:1xh;center,top&resize=1800:*';
+    final gravatarHash = _profileData?['avatar']?['gravatar']?['hash'];
+    if (gravatarHash != null) {
+      final imageUrl = 'https://www.gravatar.com/avatar/$gravatarHash?s=200';
+      return CircleAvatar(radius: 30, backgroundImage: NetworkImage(imageUrl));
+    } else {
+      return CircleAvatar(
+        radius: 30,
+        backgroundColor: Colors.grey[300],
+        child: Icon(Icons.person, size: 30, color: Colors.grey[600]),
+      );
+    }
+  }
 
-    return CircleAvatar(radius: 30, backgroundImage: NetworkImage(imageUrl));
+  void _getProfileInfo() async {
+    try {
+      final sessionId = await _storage.read(key: 'sessionId');
+      final accountResponse = await dio.get(
+        '/account',
+        queryParameters: {'session_id': sessionId},
+      );
+      setState(() {
+        _profileData = accountResponse.data;
+      });
+      print('accountResponse: ${accountResponse.data}');
+    } catch (error) {
+      print('error: $error');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _getProfileInfo();
   }
 
   Widget _buildProfileInfo() {
-    final name = 'ekosha02';
-    final subtitle = 'Member since January 2026';
+    final name = _profileData?['username'] ?? 'Loading...';
+    final subtitle = _profileData != null
+        ? 'ID: ${_profileData!['id']}'
+        : 'Loading profile...';
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(left: 13),
