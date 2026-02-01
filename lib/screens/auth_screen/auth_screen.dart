@@ -35,12 +35,16 @@ class _AuthScreenState extends State<AuthScreen> {
       final response = await dio.get(
         endpoints['/authentication/session/new']!,
         queryParameters: {'request_token': requestToken},
+        options: Options(headers: {'Authorization': 'Bearer $_apiAccessKey'}),
       );
 
       final sessionId = response.data['session_id'];
 
       await _storage.write(key: 'sessionId', value: sessionId);
       await _storage.write(key: 'requestToken', value: requestToken);
+      await _storage.write(key: "apiAccessKey", value: _apiAccessKey);
+
+      setApiAccessKey(_apiAccessKey);
 
       if (mounted) {
         Navigator.of(
@@ -84,8 +88,7 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {
             _currentRequestToken = requestToken;
           });
-          setApiAccessKey(_apiAccessKey);
-          await _storage.write(key: "apiAccessKey", value: _apiAccessKey);
+
           _handleGetAuthenticationSession(requestToken);
         })
         .catchError((error) {
