@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_the_movie_db/constants/colors.dart';
 import 'package:flutter_the_movie_db/screens/home_screen/home_screen.dart';
+import 'package:flutter_the_movie_db/screens/movies_screen/movies_screen.dart';
 import 'package:flutter_the_movie_db/screens/profile_screen/profile_screen.dart';
 import 'package:flutter_the_movie_db/widgets/custom_app_bar/custom_app_bar.dart';
 
@@ -14,7 +15,11 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _screens = <Widget>[HomeScreen(), ProfileScreen()];
+  static const List<Widget> _screens = <Widget>[
+    HomeScreen(),
+    MoviesScreen(),
+    ProfileScreen(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -30,6 +35,7 @@ class _MenuScreenState extends State<MenuScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.movie), label: 'Movies'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
