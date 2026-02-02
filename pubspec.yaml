@@ -13,6 +13,7 @@ dependencies:
   pretty_dio_logger: ^1.4.0
   webview_flutter: ^4.13.1
   flutter_secure_storage: ^10.0.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

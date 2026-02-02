@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_the_movie_db/API/base_url.dart';
+import 'package:flutter_the_movie_db/API/services/movies_service.dart';
 import 'package:flutter_the_movie_db/types/movie.dart';
+import 'package:flutter_the_movie_db/widgets/media_card/media_card.dart';
 
 class MoviesScreen extends StatefulWidget {
   const MoviesScreen({super.key});
@@ -10,71 +11,72 @@ class MoviesScreen extends StatefulWidget {
 }
 
 class _MoviesScreenState extends State<MoviesScreen> {
+  final ScrollController _scrollController = ScrollController();
   List<Movie> _movies = [];
   bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMovies();
-  }
+  bool _isFetchingMore = false;
+  int _currentPage = 1;
+  int _totalPages = 1;
 
   Future<void> _loadMovies() async {
     try {
-      final response = await dio.get('/movie/popular');
-      final movieResponse = MovieResponse.fromJson(response.data);
-      setState(() => _movies = movieResponse.results);
+      final moviesResponse = await MoviesService.getMovies(
+        category: MovieCategory.popular,
+      );
+      setState(() {
+        _movies = moviesResponse.results;
+        _currentPage = moviesResponse.page;
+        _totalPages = moviesResponse.totalPages;
+      });
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Widget _buildMovieItem(Movie movie) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1 / 1.5,
-            child: Image.network(
-              'https://image.tmdb.org/t/p/original${movie.posterPath}',
-              fit: BoxFit.cover,
+  Future<void> _loadMoreMovies() async {
+    setState(() => _isFetchingMore = true);
+    try {
+      final moviesResponse = await MoviesService.getMovies(
+        category: MovieCategory.popular,
+        page: _currentPage + 1,
+      );
+      setState(() {
+        _movies.addAll(moviesResponse.results);
+        _currentPage = moviesResponse.page;
+      });
+    } finally {
+      setState(() => _isFetchingMore = false);
+    }
+  }
 
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: Colors.grey[300],
-                child: const Icon(Icons.movie, size: 50, color: Colors.grey),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            movie.title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            movie.releaseDate,
-            maxLines: 1,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.star, color: Colors.amber, size: 14),
-              const SizedBox(width: 2),
-              Text(
-                maxLines: 1,
-                movie.voteAverage.toStringAsFixed(1),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
-          ),
-        ],
-      ),
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isFetchingMore &&
+        _currentPage < _totalPages) {
+      _loadMoreMovies();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMovies();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildMovieItem(Movie movie) {
+    return MediaCard(
+      title: movie.title,
+      posterPath: movie.posterPath,
+      releaseDate: movie.releaseDate,
+      voteAverage: movie.voteAverage,
     );
   }
 
@@ -85,30 +87,35 @@ class _MoviesScreenState extends State<MoviesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _movies.isEmpty
           ? const Center(child: Text('No movies found'))
-          : SingleChildScrollView(
+          : ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < _movies.length; i += 2)
-                          _buildMovieItem(_movies[i]),
-                      ],
+              itemCount:
+                  (_movies.length / 2).ceil() + (_isFetchingMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == (_movies.length / 2).ceil()) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final int firstIndex = index * 2;
+                final int secondIndex = firstIndex + 1;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildMovieItem(_movies[firstIndex])),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: secondIndex < _movies.length
+                          ? _buildMovieItem(_movies[secondIndex])
+                          : const SizedBox.shrink(),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        for (var i = 1; i < _movies.length; i += 2)
-                          _buildMovieItem(_movies[i]),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
     );
   }

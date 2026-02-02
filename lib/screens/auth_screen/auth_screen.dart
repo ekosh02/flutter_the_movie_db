@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_the_movie_db/API/services/account_service.dart';
+import 'package:flutter_the_movie_db/constants/external_urls.dart';
 import 'package:flutter_the_movie_db/constants/routes.dart';
 import 'package:flutter_the_movie_db/screens/webview_screen/webview_screen.dart';
 import 'package:flutter_the_movie_db/API/base_url.dart';
-import 'package:flutter_the_movie_db/API/constants.dart';
 import 'package:flutter_the_movie_db/widgets/buttons/custom_primary_button/custom_primary_button.dart';
 import 'package:flutter_the_movie_db/widgets/custom_app_bar/custom_app_bar.dart';
 import 'package:flutter_the_movie_db/widgets/inputs/auth_input/auth_input.dart';
@@ -18,58 +19,52 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   static const _storage = FlutterSecureStorage();
-  final TextEditingController _apiAccessKeyController = TextEditingController();
+  final _apiAccessKeyController = TextEditingController();
 
   String _apiAccessKey = '';
   bool _externalAuthRequest = false;
   String _currentRequestToken = '';
 
-  void _handleApiAccessKeyChanged(String value) {
-    setState(() {
-      _apiAccessKey = value;
-    });
+  @override
+  void dispose() {
+    _apiAccessKeyController.dispose();
+    super.dispose();
   }
 
-  void _handleGetAuthenticationSession(String requestToken) async {
+  void _handleApiAccessKeyChanged(String value) =>
+      setState(() => _apiAccessKey = value);
+
+  Future<void> _handleGetAuthenticationSession(String requestToken) async {
     try {
-      final response = await dio.get(
-        endpoints['/authentication/session/new']!,
-        queryParameters: {'request_token': requestToken},
-        options: Options(headers: {'Authorization': 'Bearer $_apiAccessKey'}),
+      final response = await AccountService.createSession(
+        apiAccessKey: _apiAccessKey,
+        requestToken: requestToken,
       );
 
-      final sessionId = response.data['session_id'];
-
-      await _storage.write(key: 'sessionId', value: sessionId);
-      await _storage.write(key: 'requestToken', value: requestToken);
-      await _storage.write(key: "apiAccessKey", value: _apiAccessKey);
+      await Future.wait([
+        _storage.write(key: 'sessionId', value: response.sessionId),
+        _storage.write(key: 'requestToken', value: requestToken),
+        _storage.write(key: "apiAccessKey", value: _apiAccessKey),
+      ]);
 
       setApiAccessKey(_apiAccessKey);
 
       if (mounted) {
         Navigator.of(
           context,
-        ).pushNamedAndRemoveUntil(Routes.menu, (route) => false);
+        ).pushNamedAndRemoveUntil(Routes.menu, (_) => false);
       }
     } catch (error) {
-      // ignore: avoid_print
-      final errorResponse = (error as DioException).response;
-      print('authentication session error: $errorResponse');
-
-      final isSessionDenied = errorResponse?.data['status_code'] == 17;
-      if (isSessionDenied) {
-        await _storage.delete(key: 'requestToken');
-        await _storage.delete(key: 'sessionId');
-        await _storage.delete(key: 'apiAccessKey');
-        final url = 'https://www.themoviedb.org/authenticate/$requestToken';
+      if (error is DioException && error.response?.data['status_code'] == 17) {
+        await _storage.deleteAll();
         if (mounted) {
-          setState(() {
-            _externalAuthRequest = true;
-          });
+          setState(() => _externalAuthRequest = true);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) =>
-                  WebViewScreen(url: url, title: 'TMDB Authentication'),
+              builder: (_) => WebViewScreen(
+                url: ExternalUrls.tmdbAuth(requestToken),
+                title: 'TMDB Authentication',
+              ),
             ),
           );
         }
@@ -77,26 +72,14 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _handleGetAuthenticationToken() async {
-    await dio
-        .get(
-          endpoints['/authentication/token/new']!,
-          options: Options(headers: {'Authorization': 'Bearer $_apiAccessKey'}),
-        )
-        .then((response) async {
-          final requestToken = response.data['request_token'];
-          setState(() {
-            _currentRequestToken = requestToken;
-          });
-
-          _handleGetAuthenticationSession(requestToken);
-        })
-        .catchError((error) {
-          // ignore: avoid_print
-          print(
-            'Authentication token error: ${(error as DioException).response}',
-          );
-        });
+  Future<void> _handleGetAuthenticationToken() async {
+    try {
+      final response = await AccountService.createRequestToken(
+        apiAccessKey: _apiAccessKey,
+      );
+      setState(() => _currentRequestToken = response.requestToken);
+      await _handleGetAuthenticationSession(response.requestToken);
+    } catch (_) {}
   }
 
   void _handleLogin() {
@@ -116,6 +99,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: const CustomAppBar(title: 'TMDB'),
       body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 13),
         children: [
           const SizedBox(height: 24),
           AuthInput(
@@ -123,15 +107,9 @@ class _AuthScreenState extends State<AuthScreen> {
             controller: _apiAccessKeyController,
             onChanged: _handleApiAccessKeyChanged,
             labelText: 'Access Api Key',
-            padding: const EdgeInsets.symmetric(horizontal: 13),
           ),
-
           const SizedBox(height: 12),
-          CustomPrimaryButton(
-            text: 'Login',
-            onPressed: () => _handleLogin(),
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-          ),
+          CustomPrimaryButton(text: 'Login', onPressed: _handleLogin),
         ],
       ),
     );
